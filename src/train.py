@@ -47,7 +47,7 @@ def init_dataloader(train_path, ratings_list, train_ratio):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     return train_loader, val_loader
 
-def train_model(model, optimizer, use_BPR, train_loader, val_loader, device):
+def train_model(model, optimizer, use_BPR, train_loader, val_loader, device, n_ng):
     if not use_BPR:
         criterion = torch.nn.BCEWithLogitsLoss()
     else:
@@ -58,7 +58,6 @@ def train_model(model, optimizer, use_BPR, train_loader, val_loader, device):
     t = trange(n_epochs, leave=True)
     for e in t:
         model.train()
-
         avg_loss = 0
         avg_loss_cnt = 0
         
@@ -69,16 +68,17 @@ def train_model(model, optimizer, use_BPR, train_loader, val_loader, device):
                 user = user.to(device)
                 pos_item = pos_item.to(device)
                 neg_item = neg_item.to(device)
-                
-                pos_label = torch.ones(pos_item.shape)
-                neg_label = torch.zeros(neg_item.shape)
 
-                # BCE loss predict positive label
+                pos_label = torch.ones(pos_item.shape).to(device)
+                neg_label = torch.zeros(neg_item.shape).to(device)
+  
+                    # BCE loss predict positive label
                 optimizer.zero_grad() 
                 pos_pred = model(user, pos_item)
                 loss = criterion(pos_pred, pos_label)
+                # print("pos loss", loss)
                 avg_loss += loss
-                avg_loss_cnt += user.shape[0]
+                avg_loss_cnt += 1
                 loss.backward()
                 optimizer.step()
 
@@ -86,8 +86,9 @@ def train_model(model, optimizer, use_BPR, train_loader, val_loader, device):
                 optimizer.zero_grad() 
                 neg_pred = model(user, neg_item)
                 loss = criterion(neg_pred, neg_label)
+                # print("neg loss", loss)
                 avg_loss += loss
-                avg_loss_cnt += user.shape[0]
+                avg_loss_cnt += 1
                 loss.backward()
                 optimizer.step()
 
@@ -146,12 +147,12 @@ def predict(model, n_users, n_items, ratings_set, device):
 
 
 if __name__ == "__main__":
-    n_factors = 512
-    learning_rate = 0.01
-    wd =  0.0001
-    batch_size = 4096
-    n_epochs = 100
-    use_BPR = True
+    n_factors = 128
+    learning_rate = 1
+    wd =  0
+    batch_size = 256
+    n_epochs = 400
+    use_BPR = False
     n_ng = 1
     train_ratio = 0.95
     train_path = "train.csv"
@@ -169,12 +170,12 @@ if __name__ == "__main__":
     
     if not predict_only:
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=wd)
-        train_model(model, optimizer, use_BPR, train_loader, val_loader, device)
+        train_model(model, optimizer, use_BPR, train_loader, val_loader, device, n_ng)
     
     model.load_state_dict(torch.load(model_path))
     pred = predict(model, n_users, n_items, ratings_set, device)
 
-    with open("submission.csv", 'w') as f:
+    with open("submission-{}.csv".format(n_factors), 'w') as f:
         f.write('UserId,ItemId\n')
         for user in range(len(pred)):
             f.write('{},{}\n'.format(str(user), ' '.join(str(a) for a in pred[user])))

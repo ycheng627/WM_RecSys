@@ -14,14 +14,16 @@ class RatingsDataset(Dataset):
         self.n_items = n_items
         self.n_ng = n_ng
         self.is_training = is_training
-            
+        
+
     def __len__(self):
         return len(self.ratings_list)
 
     def __getitem__(self, idx):
         rating = self.ratings_list[idx]
-        
         user, pos_item = rating
+
+
         neg_item = np.random.randint(self.n_items)
         while (user, neg_item) in self.ratings_set:
             neg_item = np.random.randint(self.n_items)
@@ -34,8 +36,8 @@ class MF(torch.nn.Module):
         self.user_factors = torch.nn.Embedding(n_users, n_factors)
         self.item_factors = torch.nn.Embedding(n_items, n_factors)
 
-        torch.nn.init.normal_(self.user_factors.weight, std=0.01)
-        torch.nn.init.normal_(self.item_factors.weight, std=0.01)
+        torch.nn.init.normal_(self.user_factors.weight, std=1)
+        torch.nn.init.normal_(self.item_factors.weight, std=1)
 
         print(n_factors, n_users, n_items)
         
